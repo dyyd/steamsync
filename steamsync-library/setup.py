@@ -20,7 +20,11 @@ setuptools.setup(
         "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
         "Topic :: Games/Entertainment",
     ],
-    install_requires=["vdf>=3,<4"],
+    install_requires=[
+        "requests>=2.25.1",
+        "toml>=0.10.2",
+        "vdf==3.3"
+    ],    
     scripts=["src/steamsync.py"],
     python_requires=">=3.6",
 )

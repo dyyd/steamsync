@@ -120,6 +120,14 @@ def parse_arguments():
         required=False,
     )
 
+    parser.add_argument(
+        "--fix-app-ids",
+        default=False,
+        action="store_true",
+        help="Find correct Steam app id-s for games that have been manually added",
+        required=False,
+    )
+
     args = parser.parse_args()
     if not args.source:
         args.source = defs.TAGS
@@ -344,17 +352,17 @@ def prompt_for_steam_account(accounts):
     return None
 
 
-def to_shortcut(game, use_uri):
+def to_shortcut(game, use_uri, steamdb):
     """
     Turns the given GameDefinition into a shortcut dict, suitable to injecting
     into Steam's shortcuts.vdf
     """
 
-    shortcut, launch_args = game.get_launcher(use_uri)
+    executable, launch_args = game.get_launcher(use_uri)
 
-    return {
+    shortcut = {
         "appname": game.display_name,
-        "Exe": shortcut,
+        "Exe": executable,
         "StartDir": game.install_folder,
         "icon": game.icon,
         "ShortcutPath": "",
@@ -368,6 +376,13 @@ def to_shortcut(game, use_uri):
         "LastPlayTime": 0,  # todo - is this right? if we really wanted we could parse this in from EGS manifest files...
         "tags": {"0": "steamsync", "1": game.storetag},
     }
+
+    if steamdb:
+        app_id = steamdb.guess_appid(game.display_name)
+        if app_id:
+            shortcut["appid"] = app_id
+
+    return shortcut
 
 
 def get_exe_from_shortcut(shortcut):
@@ -484,9 +499,9 @@ def add_games_to_shortcut_file(
         if i:
             if replace_existing:
                 old_shortcut = shortcuts["shortcuts"][i]
-                new_shortcut = to_shortcut(game, use_uri)
+                new_shortcut = to_shortcut(game, use_uri, steamdb)
                 print(
-                    f"Replacing {old_shortcut['appname']} ({get_exe_from_shortcut(old_shortcut)} {old_shortcut.get('LaunchOptions', '')})\n     with {new_shortcut['appname']} ({get_exe_from_shortcut(new_shortcut)} {new_shortcut.get('LaunchOptions', '')})"
+                    f"Replacing {old_shortcut['AppName']} ({get_exe_from_shortcut(old_shortcut)} {old_shortcut.get('LaunchOptions', '')})\n     with {new_shortcut['AppName']} ({get_exe_from_shortcut(new_shortcut)} {new_shortcut.get('LaunchOptions', '')})"
                 )
                 shortcuts["shortcuts"][i] = new_shortcut
                 added += 1
@@ -497,7 +512,7 @@ def add_games_to_shortcut_file(
                 game_results.append(msg)
             continue
         last_index += 1
-        shortcuts["shortcuts"][str(last_index)] = to_shortcut(game, use_uri)
+        shortcuts["shortcuts"][str(last_index)] = to_shortcut(game, use_uri, steamdb)
         added += 1
 
     print(f"Added {added} new games")
@@ -582,7 +597,17 @@ def remove_missing_games_from_shortcut_file(
 
     return (game_results, len(missing_shortcuts)), None
 
-
+def fix_app_ids(steamdb, shortcuts):
+    all_indexes = shortcuts['shortcuts'].keys()
+    fixed = 0
+    for index in all_indexes:
+        game = shortcuts['shortcuts'][index]
+        if 'appid' in game and game['appid'] < 0:
+            found_app_id = steamdb.guess_appid(game['AppName'])
+            if found_app_id:
+                game['appid'] = found_app_id
+                fixed += 1
+    return fixed, None
 ####################################################################################################
 # Main
 
@@ -692,6 +717,11 @@ def main():
         shortcuts = vdf.binary_load(sf)
 
     should_write_vdf = False
+    if args.fix_app_ids:
+        result, msg = fix_app_ids(steamdb, shortcuts)
+        should_write_vdf |= result is not None
+        # Get art while at it ?
+
     if args.remove_missing:
         result, msg = remove_missing_games_from_shortcut_file(
             steamdb,

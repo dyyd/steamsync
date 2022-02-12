@@ -280,7 +280,7 @@ class SteamDatabase:
     def download_art(self, user, game, should_replace_existing):
         targets = self._get_grid_art_destinations(game, user)
         targets["boxart"].parent.mkdir(exist_ok=True, parents=True)
-        appid = self.guess_appid(game.display_name)
+        appid = self.guess_appid(game.display_name or game.app_name)
         downloaded_art = False
         found_art = 0
         expected_art = len(targets)
@@ -298,7 +298,7 @@ class SteamDatabase:
                 else:
                     logs.append(msg)
         else:
-            logs.append("Appid not found.")
+            logs.append(f"Appid not found for {game.display_name or game.app_name}.")
 
         if (
             found_art < expected_art
@@ -382,7 +382,7 @@ class SteamDatabase:
         """
         grid = Path(user.get_grid_folder(self._steam_path))
         exe, args = game.get_launcher(self._prefer_uri)
-        shortcut = self._get_steam_shortcut_id(exe, game.display_name)
+        shortcut = self._get_steam_shortcut_id(exe, game.display_name or game.app_name)
         # For some reason Big Picture uses 64 bit ids.
         # See https://github.com/scottrice/Ice/blob/7130b54c8d2fa7d0e2c0994ca1f2aa3fb2a27ba9/ice/steam_grid.py#L49-L64
         bp_shortcut = (shortcut << 32) | 0x02000000

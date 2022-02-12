@@ -5,6 +5,7 @@ from pathlib import Path
 
 TAG_LEGENDARY = "legendary"
 TAG_EPIC = "epicstore"
+TAG_LEGENDARY = "legendary"
 TAG_ITCH = "itchio"
 TAG_XBOX = "xbox"
 TAGS = [
